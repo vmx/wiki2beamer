@@ -269,6 +269,23 @@ class TestConvert2Beamer(unittest.TestCase):
         out = convert2beamer(lines)
         self.assertEqual(out,expected)
 
+    def test_include_file(self):
+        expected = ['test file content']
+        line = ">>>test_file<<<"
+        out = include_file(line)
+        self.assertEqual(expected, out)
+
+        lines = ['<[nowiki]',
+                 '>>>test_file<<<',
+                 '[nowiki]>']
+        out = include_files(lines)
+        self.assertEqual(lines, out)
+
+        expected = ['content from test_file2',
+                  'test file content']
+        line = ">>>test_file2<<<"
+        out = include_files([line])
+
 class TestSelectedFramesMode(unittest.TestCase):
     def setUp(self):
         return
