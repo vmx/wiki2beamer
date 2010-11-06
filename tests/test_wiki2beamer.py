@@ -18,6 +18,7 @@ import sys
 import unittest
 import re
 import random
+import threading
 
 sys.path.append('../code')
 from wiki2beamer import *
@@ -268,23 +269,59 @@ class TestConvert2Beamer(unittest.TestCase):
         expected = ['\n', '\\begin{itemize}\n  \\item foo', '\\end{itemize}\n\\column{6cm}', '']
         out = convert2beamer(lines)
         self.assertEqual(out,expected)
+    
+    def test_include_file_inside_code(self):
+        lines = ['<[code]', '>>>test_file<<<', '[code]>']
+        expected = ['\\defverbatim[colored]\\mhifagamigghjgmmckbhaimjjhbfemio{\n\\begin{lstlisting}test file content\\end{lstlisting}\n}\n', '\n\\mhifagamigghjgmmckbhaimjjhbfemio\n', '', '']
+        out = convert2beamer(lines)
+        self.assertEqual(out,expected)
 
-    def test_include_file(self):
-        expected = ['test file content']
+    def test_include_file_inside_code_inside_nowiki(self):
+        lines = ['<[code]', '<[nowiki]', '>>>test_file<<<', '[nowiki]>', '[code]>']
+        expected = ['\\defverbatim[colored]\\nebnimnjipaalcaeojiaajjiompiecho{\n\\begin{lstlisting}\\end{lstlisting}\n}\n', '', '>>>test_file<<<', '\n\\nebnimnjipaalcaeojiaajjiompiecho\n', '', '']
+        out = convert2beamer(lines)
+        self.assertEqual(out,expected)
+
+class TestFileInclusion(unittest.TestCase):
+    def setUp(self):
+        files = {'test_file': ['test file content'],
+                 'test_file2':['content from test_file2',
+                               '>>>test_file<<<'],
+                 'test_file3':['content from test_file3',
+                               '<[nowiki]',
+                               '>>>test_file<<<',
+                               '[nowiki]>'],
+                 'test_file_loop':['test_file_loop content',
+                               '>>>test_file_loop<<<']
+                }
+        for file_, lines in files.items():
+            add_lines_to_cache(file_, lines)
+        return
+    
+    def tearDown(self):
+        clear_file_cache()
+        return
+
+    def test_include_file_works(self):
+        expected = 'test_file'
         line = ">>>test_file<<<"
         out = include_file(line)
         self.assertEqual(expected, out)
 
-        lines = ['<[nowiki]',
-                 '>>>test_file<<<',
-                 '[nowiki]>']
-        out = include_files(lines)
-        self.assertEqual(lines, out)
-
+    def test_include_file_recursive_works(self):
         expected = ['content from test_file2',
                   'test file content']
-        line = ">>>test_file2<<<"
-        out = include_files([line])
+        out = include_file_recursive('test_file2')
+        self.assertEqual(expected, out)
+
+    def test_include_file_recursive_honors_nowiki(self):
+        expected = ['content from test_file3', '<[nowiki]', '>>>test_file<<<', '[nowiki]>']
+        out = include_file_recursive('test_file3')
+        self.assertEqual(expected, out)
+
+    def test_include_file_recursive_detects_loop(self):
+        expected = ["test_file_loop content"]
+        self.assertRaises(Exception, include_file_recursive, 'test_file_loop')
 
 class TestSelectedFramesMode(unittest.TestCase):
     def setUp(self):
