@@ -3,8 +3,8 @@
 # wiki2beamer
 #
 # (c) 2007-2008 Michael Rentzsch (http://www.repc.de)
-# (c) 2009 Michael Rentzsch (http://www.repc.de)
-#          Kai Dietrich (mail@cleeus.de)
+# (c) 2009-2010 Michael Rentzsch (http://www.repc.de)
+#               Kai Dietrich (mail@cleeus.de)
 #
 # Create latex beamer sources for multiple frames from a wiki-like code.
 #
@@ -22,6 +22,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with wiki2beamer.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Additional commits by:
+#     Valentin Haenel <valentin.haenel@gmx.de>
+#     Julius Plenz <julius@plenz.com>
 
 
 import sys
@@ -32,7 +36,7 @@ import optparse
 
 VERSIONTAG = "0.9.0"
 __version__= VERSIONTAG
-__author__= "Michael Rentzsch, Kai Dietrich"
+__author__= "Michael Rentzsch, Kai Dietrich and others"
 
 #python 2.4 compatability
 if sys.version_info >= (2, 5):
@@ -90,15 +94,16 @@ autotemplate = [\
 
 nowikistartre = re.compile(r'^<\[\s*nowiki\s*\]')
 nowikiendre = re.compile(r'^\[\s*nowiki\s*\]>')
+codestartre = re.compile(r'^<\[\s*code\s*\]')
+codeendre = re.compile(r'^\[\s*code\s*\]>')
 
 # lazy initialisation cache for file content
 _file_cache = dict()
 
 def add_lines_to_cache(filename, lines):
-    if filename in _file_cache:
-        pass
-    else:
+    if not filename in _file_cache:
         _file_cache[filename] = lines
+    return
 
 
 def get_lines_from_cache(filename):
@@ -108,9 +113,11 @@ def get_lines_from_cache(filename):
         lines = read_file_to_lines(filename)
         _file_cache[filename] = lines
         return lines
+    return
 
 def clear_file_cache():
     _file_cache = {}
+    return
 
 
 class w2bstate:
@@ -130,6 +137,7 @@ class w2bstate:
     def switch_to_next_frame(self):
         self.frame_header = self.next_frame_header
         self.frame_footer = self.next_frame_footer
+        return
 
 def escape_resub(string):
     p = re.compile(r"\\")
@@ -806,9 +814,6 @@ def get_nowikimode(line, nowikimode):
         return (line, nowikimode)
 
 def get_codemode(line, codemode):
-    codestartre = re.compile(r'^<\[\s*code\s*\]')
-    codeendre = re.compile(r'^\[\s*code\s*\]>')
-
     if not codemode and codestartre.match(line)!=None:
         line = codestartre.sub('', line)
         return (line, True)
@@ -951,14 +956,20 @@ def include_file_recursive(base):
     def recurse(file_):
         stack.append(file_)
         nowikimode = False
+        codemode = False
         for line in get_lines_from_cache(file_):
-            if nowikimode:
+            if nowikimode or codemode:
                 if nowikiendre.match(line):
                     nowikimode = False
+                elif codestartre.match(line):
+                    codemode = False
                 output.append(line)
             elif nowikistartre.match(line):
                 output.append(line)
                 nowikimode = True
+            elif codestartre.match(line):
+                output.append(line)
+                codemode = True
             else:
                 include = include_file(line)
                 if include is not None:
